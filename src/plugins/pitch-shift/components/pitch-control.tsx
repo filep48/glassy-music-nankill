@@ -32,6 +32,8 @@ export const PitchControl = (props: PitchControlProps) => {
       class="pitch-shift-control"
       on:wheel={(event: WheelEvent) => {
         event.preventDefault();
+        // precise-volume listens on ytmusic-player-bar, an ancestor of this control.
+        event.stopPropagation();
         step(event.deltaY < 0 ? 1 : -1);
       }}
       role="group"
