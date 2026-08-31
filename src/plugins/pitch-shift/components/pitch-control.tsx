@@ -1,7 +1,10 @@
+import { formatUnits } from '../constants';
+
 export interface PitchControlProps {
   semitones: number;
   min: number;
   max: number;
+  stepsPerSemitone: number;
   /** Tooltip / accessible name, e.g. "Pitch (semitones)". */
   label: string;
   /** Accessible name for the reset affordance on the readout. */
@@ -21,11 +24,18 @@ const clamp = (value: number, min: number, max: number) =>
  * (captions-selector, quality-changer, video-toggle) uses `on:click` for this reason.
  */
 export const PitchControl = (props: PitchControlProps) => {
-  const step = (delta: number) =>
+  const step = (steps: number) => {
+    const delta = steps / props.stepsPerSemitone;
     props.onChange(clamp(props.semitones + delta, props.min, props.max));
+  };
+
+  const stepLabel = () => formatUnits(1, props.stepsPerSemitone).slice(1);
 
   const readout = () =>
-    props.semitones > 0 ? `+${props.semitones}` : String(props.semitones);
+    formatUnits(
+      Math.round(props.semitones * props.stepsPerSemitone),
+      props.stepsPerSemitone,
+    );
 
   return (
     <div
@@ -40,7 +50,7 @@ export const PitchControl = (props: PitchControlProps) => {
       title={props.label}
     >
       <button
-        aria-label={`${props.label} −1`}
+        aria-label={`${props.label} −${stepLabel()}`}
         class="pitch-shift-step"
         disabled={props.semitones <= props.min}
         on:click={() => step(-1)}
@@ -59,7 +69,7 @@ export const PitchControl = (props: PitchControlProps) => {
         {readout()}
       </button>
       <button
-        aria-label={`${props.label} +1`}
+        aria-label={`${props.label} +${stepLabel()}`}
         class="pitch-shift-step"
         disabled={props.semitones >= props.max}
         on:click={() => step(1)}

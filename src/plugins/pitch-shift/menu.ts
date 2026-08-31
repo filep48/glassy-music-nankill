@@ -1,13 +1,17 @@
 import { t } from '@/i18n';
 
 import {
+  formatUnits,
   MAX_SEMITONES,
   MIN_SEMITONES,
   type PitchShiftPluginConfig,
+  STEPS_PER_SEMITONE_OPTIONS,
 } from './constants';
 
 import type { MenuTemplate } from '@/menu';
 import type { MenuContext } from '@/types/contexts';
+
+const STEP_SIZE_KEYS: Record<number, string> = { 1: 'semitone', 3: 'third' };
 
 /**
  * Every entry is a `normal` item, deliberately — no `radio` marks for the current key.
@@ -43,13 +47,15 @@ export const onMenu = async ({
     });
   }
 
+  const step = formatUnits(1, config.stepsPerSemitone);
+
   return [
     {
-      label: t('plugins.pitch-shift.menu.up'),
+      label: t('plugins.pitch-shift.menu.up', { value: step }),
       click: () => nudge(1),
     },
     {
-      label: t('plugins.pitch-shift.menu.down'),
+      label: t('plugins.pitch-shift.menu.down', { value: `-${step.slice(1)}` }),
       click: () => nudge(-1),
     },
     {
@@ -61,6 +67,16 @@ export const onMenu = async ({
       label: t('plugins.pitch-shift.menu.set.label'),
       type: 'submenu',
       submenu: steps,
+    },
+    {
+      label: t('plugins.pitch-shift.menu.step-size.label'),
+      type: 'submenu',
+      submenu: STEPS_PER_SEMITONE_OPTIONS.map((steps) => ({
+        label: t(`plugins.pitch-shift.menu.step-size.${STEP_SIZE_KEYS[steps]}`),
+        type: 'radio' as const,
+        checked: config.stepsPerSemitone === steps,
+        click: () => setConfig({ stepsPerSemitone: steps }),
+      })),
     },
     { type: 'separator' },
     {
