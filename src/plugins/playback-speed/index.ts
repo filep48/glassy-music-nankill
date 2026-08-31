@@ -2,6 +2,7 @@ import { t } from '@/i18n';
 import { createPlugin } from '@/utils';
 
 import { onConfigChange, onPlayerApiReady, onUnload } from './renderer';
+import style from './style.css?inline';
 
 import type { MenuTemplate } from '@/menu';
 import type { MenuContext } from '@/types/contexts';
@@ -14,6 +15,7 @@ export type PlaybackSpeedPluginConfig = {
    * also drops its pitch.
    */
   vinylMode: boolean;
+  showPlayerBarControl: boolean;
 };
 
 export default createPlugin({
@@ -23,7 +25,9 @@ export default createPlugin({
   config: {
     enabled: false,
     vinylMode: false,
+    showPlayerBarControl: true,
   } as PlaybackSpeedPluginConfig,
+  stylesheets: [style],
   menu: async ({
     getConfig,
     setConfig,
@@ -36,6 +40,13 @@ export default createPlugin({
         type: 'checkbox',
         checked: config.vinylMode,
         click: () => setConfig({ vinylMode: !config.vinylMode }),
+      },
+      {
+        label: t('plugins.playback-speed.menu.show-player-bar-control'),
+        type: 'checkbox',
+        checked: config.showPlayerBarControl,
+        click: () =>
+          setConfig({ showPlayerBarControl: !config.showPlayerBarControl }),
       },
     ];
   },

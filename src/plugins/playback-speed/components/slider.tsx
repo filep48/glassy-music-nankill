@@ -1,3 +1,9 @@
+import {
+  MAX_SLIDER_SPEED,
+  MIN_SLIDER_SPEED,
+  PLAYBACK_SPEED_STEP,
+} from '../constants';
+
 export interface PlaybackSpeedSliderProps {
   speed: number;
   title: string;
@@ -21,17 +27,17 @@ export const PlaybackSpeedSlider = (props: PlaybackSpeedSliderProps) => (
       <tp-yt-paper-slider
         aria-disabled="false"
         aria-label={props.title}
-        aria-valuemax="2"
-        aria-valuemin="0"
+        aria-valuemax={MAX_SLIDER_SPEED}
+        aria-valuemin={MIN_SLIDER_SPEED}
         aria-valuenow={props.speed}
         class="volume-slider style-scope ytmusic-player-bar on-hover"
         dir="ltr"
-        max="2"
-        min="0"
+        max={MAX_SLIDER_SPEED}
+        min={MIN_SLIDER_SPEED}
         on:immediate-value-changed={(e) => props.onImmediateValueChanged?.(e)}
         onWheel={(e) => props.onWheel?.(e)}
         role="slider"
-        step="0.125"
+        step={PLAYBACK_SPEED_STEP}
         style={{ 'display': 'inherit !important' }}
         tabindex="0"
         title={props.title}
@@ -42,8 +48,8 @@ export const PlaybackSpeedSlider = (props: PlaybackSpeedSliderProps) => (
             <tp-yt-paper-progress
               aria-disabled="false"
               aria-hidden="true"
-              aria-valuemax="2"
-              aria-valuemin="0"
+              aria-valuemax={MAX_SLIDER_SPEED}
+              aria-valuemin={MIN_SLIDER_SPEED}
               aria-valuenow="1"
               class="style-scope tp-yt-paper-slider"
               id="sliderBar"
