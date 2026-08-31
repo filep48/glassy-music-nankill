@@ -9,13 +9,17 @@ import {
 import { getSongMenu } from '@/providers/dom-elements';
 
 import { PlaybackSpeedSlider } from './components/slider';
+import { SpeedControl } from './components/speed-control';
+import {
+  MAX_PLAYBACK_SPEED,
+  MIN_PLAYBACK_SPEED,
+  PLAYBACK_SPEED_STEP,
+  snapToStep,
+} from './constants';
 
 import type { PlaybackSpeedPluginConfig } from './index';
 import type { RendererContext } from '@/types/contexts';
 import type { MusicPlayer } from '@/types/music-player';
-
-const MIN_PLAYBACK_SPEED = 0.07;
-const MAX_PLAYBACK_SPEED = 16;
 
 /**
  * Chromium already defaults `preservesPitch` to true, so speed changes keep the
@@ -42,70 +46,114 @@ const forcePlaybackRate = (e: Event) => {
   }
 };
 
-const roundToTwo = (n: number) => Math.round(n * 1e2) / 1e2;
-
 const [speed, setSpeed] = createSignal(1);
 const [vinylMode, setVinylMode] = createSignal(false);
 const sliderContainer = document.createElement('div');
+const controlContainer = document.createElement('div');
+// `contents` keeps the wrapper out of the player bar's flex layout.
+controlContainer.style.display = 'contents';
+
+const PLAYER_BAR_SELECTOR = '.right-controls-buttons';
+
+let playerBarObserver: MutationObserver | null = null;
+let disposeControl: (() => void) | null = null;
+let showControl = true;
+
+/**
+ * The signal is the single source of truth, so both entry points go through the
+ * setter's updater form.
+ */
+const commit = (compute: (previous: number) => number) => {
+  setSpeed((previous) =>
+    snapToStep(
+      Math.min(
+        Math.max(compute(previous), MIN_PLAYBACK_SPEED),
+        MAX_PLAYBACK_SPEED,
+      ),
+    ),
+  );
+
+  const videoElement = document.querySelector<HTMLVideoElement>('video');
+  if (videoElement) applyRateSettings(videoElement);
+};
+
+const applySpeed = (value: number) => commit(() => (isNaN(value) ? 1 : value));
+const nudgeSpeed = (delta: number) => commit((previous) => previous + delta);
+
+const mountControl = () => {
+  const playerBar = document.querySelector(PLAYER_BAR_SELECTOR);
+  if (!playerBar || playerBar.contains(controlContainer)) return;
+
+  disposeControl ??= render(
+    () => (
+      <SpeedControl
+        label={t('plugins.playback-speed.templates.button')}
+        max={MAX_PLAYBACK_SPEED}
+        min={MIN_PLAYBACK_SPEED}
+        onChange={applySpeed}
+        resetLabel={t('plugins.playback-speed.templates.reset')}
+        speed={speed()}
+        step={PLAYBACK_SPEED_STEP}
+      />
+    ),
+    controlContainer,
+  );
+
+  playerBar.append(controlContainer);
+};
+
+const unmountControl = () => {
+  controlContainer.remove();
+  disposeControl?.();
+  disposeControl = null;
+};
+
+// The player bar is re-rendered on navigation, so a one-shot mount does not survive.
+const observePlayerBar = () => {
+  mountControl();
+  playerBarObserver ??= new MutationObserver(() => mountControl());
+  playerBarObserver.observe(document.body, { childList: true, subtree: true });
+};
+
+const unobservePlayerBar = () => {
+  playerBarObserver?.disconnect();
+  playerBarObserver = null;
+  unmountControl();
+};
 
 export const onConfigChange = (newConfig: PlaybackSpeedPluginConfig) => {
   setVinylMode(newConfig.vinylMode);
 
   const videoElement = document.querySelector<HTMLVideoElement>('video');
   if (videoElement) applyRateSettings(videoElement);
+
+  if (newConfig.showPlayerBarControl === showControl) return;
+  showControl = newConfig.showPlayerBarControl;
+
+  if (showControl) observePlayerBar();
+  else unobservePlayerBar();
 };
 
 export const onPlayerApiReady = async (
   _playerApi: MusicPlayer,
   { getConfig }: RendererContext<PlaybackSpeedPluginConfig>,
 ) => {
-  setVinylMode((await getConfig()).vinylMode);
+  const config = await getConfig();
+  setVinylMode(config.vinylMode);
+  showControl = config.showPlayerBarControl;
 
   const observePopupContainer = () => {
-    const updatePlayBackSpeed = () => {
-      const videoElement = document.querySelector<HTMLVideoElement>('video');
-      if (videoElement) {
-        applyRateSettings(videoElement);
-      }
-
-      setSpeed(speed());
-    };
-
     render(
       () => (
         <PlaybackSpeedSlider
-          onImmediateValueChanged={(e) => {
-            let targetSpeed = Number(e.detail.value ?? MIN_PLAYBACK_SPEED);
-
-            if (isNaN(targetSpeed)) {
-              targetSpeed = 1;
-            }
-
-            targetSpeed = Math.min(
-              Math.max(MIN_PLAYBACK_SPEED, targetSpeed),
-              MAX_PLAYBACK_SPEED,
-            );
-
-            setSpeed(targetSpeed);
-            updatePlayBackSpeed();
-          }}
+          onImmediateValueChanged={(e) =>
+            applySpeed(Number(e.detail.value ?? MIN_PLAYBACK_SPEED))
+          }
           onWheel={(e) => {
             e.preventDefault();
-
-            if (isNaN(speed())) {
-              setSpeed(1);
-            }
-
-            // E.deltaY < 0 means wheel-up
-            setSpeed((prev) =>
-              roundToTwo(
-                e.deltaY < 0
-                  ? Math.min(prev + 0.01, MAX_PLAYBACK_SPEED)
-                  : Math.max(prev - 0.01, MIN_PLAYBACK_SPEED),
-              ),
+            nudgeSpeed(
+              e.deltaY < 0 ? PLAYBACK_SPEED_STEP : -PLAYBACK_SPEED_STEP,
             );
-
-            updatePlayBackSpeed();
           }}
           speed={speed()}
           title={t('plugins.playback-speed.templates.button')}
@@ -146,6 +194,8 @@ export const onPlayerApiReady = async (
 
   observePopupContainer();
   observeVideo();
+
+  if (showControl) observePlayerBar();
 };
 
 export const onUnload = () => {
@@ -155,4 +205,5 @@ export const onUnload = () => {
     video.removeEventListener('peard:src-changed', forcePlaybackRate);
   }
   getSongMenu()?.removeChild(sliderContainer);
+  unobservePlayerBar();
 };

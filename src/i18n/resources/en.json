@@ -749,11 +749,13 @@
     "playback-speed": {
       "description": "Listen fast, listen slow! Adds a slider that controls song speed",
       "menu": {
+        "show-player-bar-control": "Show control in player bar",
         "vinyl-mode": "Vinyl mode (speed also changes pitch)"
       },
       "name": "Playback Speed",
       "templates": {
-        "button": "Speed"
+        "button": "Speed",
+        "reset": "Reset speed"
       }
     },
     "precise-volume": {
