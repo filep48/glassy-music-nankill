@@ -724,7 +724,7 @@
     "pitch-shift": {
       "description": "Change a song's key without changing its speed. Transpose up or down by up to 12 semitones, with [ and ] to step and \\ to reset. Adds about 60 ms of audio latency, which may nudge lyrics slightly out of sync",
       "menu": {
-        "down": "Pitch Down (−1 semitone)",
+        "down": "Pitch Down ({{value}})",
         "original-key": "Original Key",
         "phase-locking": "High-quality phase locking",
         "reset": "Reset to Original Key",
@@ -733,7 +733,12 @@
           "label": "Set Key"
         },
         "show-player-bar-control": "Show control in player bar",
-        "up": "Pitch Up (+1 semitone)"
+        "step-size": {
+          "label": "Step Size",
+          "semitone": "Semitone",
+          "third": "Third of a semitone"
+        },
+        "up": "Pitch Up ({{value}})"
       },
       "name": "Pitch Shift",
       "templates": {

@@ -1,4 +1,4 @@
-import { createSignal } from 'solid-js';
+import { createSignal, untrack } from 'solid-js';
 import { render } from 'solid-js/web';
 
 import { t } from '@/i18n';
@@ -6,6 +6,7 @@ import { t } from '@/i18n';
 import { PitchAudioGraph } from './audio-graph';
 import { PitchControl } from './components/pitch-control';
 import {
+  DEFAULT_CONFIG,
   MAX_SEMITONES,
   MIN_SEMITONES,
   type PitchShiftPluginConfig,
@@ -25,6 +26,9 @@ import type { MusicPlayer } from '@/types/music-player';
  * that runs on import runs whether or not the plugin is enabled.
  */
 const [semitones, setSemitones] = createSignal(0);
+const [stepsPerSemitone, setStepsPerSemitone] = createSignal(
+  DEFAULT_CONFIG.stepsPerSemitone,
+);
 
 const graph = new PitchAudioGraph();
 const controlContainer = document.createElement('div');
@@ -47,17 +51,23 @@ let showControl = true;
  */
 const commit = (compute: (previous: number) => number) => {
   setSemitones((previous) => {
-    const next = Math.round(
-      Math.min(Math.max(compute(previous), MIN_SEMITONES), MAX_SEMITONES),
+    const steps = untrack(stepsPerSemitone);
+    const clamped = Math.min(
+      Math.max(compute(previous), MIN_SEMITONES),
+      MAX_SEMITONES,
     );
+    const next = Math.round(clamped * steps) / steps;
     graph.setSemitones(next);
     return next;
   });
 };
 
 export const applySemitones = (value: number) => commit(() => value);
-export const nudgeSemitones = (delta: number) =>
-  commit((previous) => previous + delta);
+export const nudgeSteps = (steps: number) =>
+  commit((previous) => {
+    const delta = steps / untrack(stepsPerSemitone);
+    return previous + delta;
+  });
 
 /**
  * Bracket keys are the DJ and karaoke convention for key changes, and all three are
@@ -95,13 +105,13 @@ const onKeyDown = (event: KeyboardEvent) => {
   switch (event.code) {
     case 'BracketRight': {
       event.preventDefault();
-      nudgeSemitones(1);
+      nudgeSteps(1);
       break;
     }
 
     case 'BracketLeft': {
       event.preventDefault();
-      nudgeSemitones(-1);
+      nudgeSteps(-1);
       break;
     }
 
@@ -145,6 +155,7 @@ const mountControl = () => {
         onChange={applySemitones}
         resetLabel={t('plugins.pitch-shift.templates.reset')}
         semitones={semitones()}
+        stepsPerSemitone={stepsPerSemitone()}
       />
     ),
     controlContainer,
@@ -177,6 +188,7 @@ export const onRendererStart = async (
 ) => {
   const config = await context.getConfig();
   showControl = config.showPlayerBarControl;
+  setStepsPerSemitone(config.stepsPerSemitone);
   graph.setPhaseLocking(config.phaseLocking);
 
   document.addEventListener('peard:audio-can-play', onAudioCanPlay, {
@@ -188,7 +200,7 @@ export const onRendererStart = async (
   if (graph.lastSource) attach(graph.lastSource, graph.lastContext);
 
   context.ipc.on(IPC_SET, (value: number) => applySemitones(value));
-  context.ipc.on(IPC_NUDGE, (delta: number) => nudgeSemitones(delta));
+  context.ipc.on(IPC_NUDGE, (steps: number) => nudgeSteps(steps));
 };
 
 export const onPlayerApiReady = (playerApi: MusicPlayer) => {
@@ -214,6 +226,11 @@ export const onPlayerApiReady = (playerApi: MusicPlayer) => {
 
 export const onConfigChange = (config: PitchShiftPluginConfig) => {
   graph.setPhaseLocking(config.phaseLocking);
+
+  if (config.stepsPerSemitone !== stepsPerSemitone()) {
+    setStepsPerSemitone(config.stepsPerSemitone);
+    commit((previous) => previous);
+  }
 
   if (config.showPlayerBarControl === showControl) return;
   showControl = config.showPlayerBarControl;
