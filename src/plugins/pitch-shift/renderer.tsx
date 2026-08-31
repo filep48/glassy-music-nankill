@@ -150,7 +150,7 @@ const mountControl = () => {
     controlContainer,
   );
 
-  playerBar.prepend(controlContainer);
+  playerBar.append(controlContainer);
 };
 
 const unmountControl = () => {
