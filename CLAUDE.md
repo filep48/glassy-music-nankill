@@ -46,7 +46,22 @@ and several do. The upstream config is identical, so this is not a Glassy regres
 Verify renderer work with `pnpm build && pnpm start` until that is fixed. Slower, but
 it runs the real bundle.
 
-The installed release is not this tree: `%LOCALAPPDATA%\Programs\glassy-music-nankill-mod`.
+**Upstream renamed the app on 2026-09-21** (`0a4cc366`): `name` and `appId` went from
+`glassy-music-nankill-mod` to `glassy-music-nankill`. `productName` did not change, so
+user data stays in `%APPDATA%\Glassy Music`, but the installer treats it as a different
+app and installs to a new folder next to the old one. Uninstall the old build first
+(`Uninstall Glassy Music.exe /S`), then install.
+
+**Build locally with `electron-builder --win nsis:x64`**, not the configured `nsis-web`:
+the web installer downloads its payload from NanKillBro's releases.
+
+**A build can fail inside the submodules** after an upstream bump. `sync:extensions`
+rewrites tracked files there (`locales.ts`, `package-lock.json`, the `ort` bundles) and
+tacet's patch series leaves untracked files behind, so the next checkout or
+`apply-patches` refuses to run. All of it is generated: reset the submodule to its
+commit (`git reset --hard` plus `git clean` of the files it names) and rebuild.
+
+The installed release is not this tree: `%LOCALAPPDATA%\Programs\glassy-music-nankill`.
 Its live settings are in `%APPDATA%\Glassy Music\config.json`, which is the source of
 truth for which plugins are actually enabled.
 
