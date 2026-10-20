@@ -61,6 +61,15 @@ tacet's patch series leaves untracked files behind, so the next checkout or
 `apply-patches` refuses to run. All of it is generated: reset the submodule to its
 commit (`git reset --hard` plus `git clean` of the files it names) and rebuild.
 
+Two more ways a submodule bump breaks the build. Upstream sometimes records a
+submodule commit that was never pushed (`upload-pack: not our ref`), and
+`sync:extensions` runs `git submodule update` itself, so checking out an older commit
+by hand is not enough: stage it (`git add extensions-src/<name>`, do not commit) and
+the update leaves it alone, because it reads the pointer from the index. And the sync
+script only reinstalls dependencies for npm submodules; a pnpm one (`shaders-glassy`)
+that gains a dependency fails with `Failed to resolve '<package>'` until you run
+`pnpm install` inside it.
+
 The installed release is not this tree: `%LOCALAPPDATA%\Programs\glassy-music-nankill`.
 Its live settings are in `%APPDATA%\Glassy Music\config.json`, which is the source of
 truth for which plugins are actually enabled.
