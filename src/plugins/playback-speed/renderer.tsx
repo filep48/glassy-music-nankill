@@ -40,8 +40,17 @@ const applyRateSettings = (videoElement: HTMLVideoElement) => {
   }
 };
 
+// crossfade's gapless bridge moves the muted player with the playback rate while it
+// aligns it; re-asserting the speed here would undo that.
+let bridgeActive = false;
+const onAudioBridge = ({ detail }: CustomEvent<{ active: boolean }>) => {
+  bridgeActive = detail.active;
+  const videoElement = document.querySelector<HTMLVideoElement>('video');
+  if (!bridgeActive && videoElement) applyRateSettings(videoElement);
+};
+
 const forcePlaybackRate = (e: Event) => {
-  if (e.target instanceof HTMLVideoElement) {
+  if (!bridgeActive && e.target instanceof HTMLVideoElement) {
     applyRateSettings(e.target);
   }
 };
@@ -185,6 +194,7 @@ export const onPlayerApiReady = async (
   };
 
   const observeVideo = () => {
+    document.addEventListener('peard:audio-bridge', onAudioBridge);
     const video = document.querySelector<HTMLVideoElement>('video');
     if (video) {
       video.addEventListener('ratechange', forcePlaybackRate);
@@ -199,6 +209,7 @@ export const onPlayerApiReady = async (
 };
 
 export const onUnload = () => {
+  document.removeEventListener('peard:audio-bridge', onAudioBridge);
   const video = document.querySelector<HTMLVideoElement>('video');
   if (video) {
     video.removeEventListener('ratechange', forcePlaybackRate);
