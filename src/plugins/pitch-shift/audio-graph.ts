@@ -40,6 +40,7 @@ export class PitchAudioGraph {
   private node: AudioWorkletNode | null = null;
   private semitones = 0;
   private phaseLocking = true;
+  private flushHeld = false;
 
   private connected = new WeakMap<
     MediaElementAudioSourceNode,
@@ -156,6 +157,15 @@ export class PitchAudioGraph {
 
   /** Drop buffered audio. Required on seek and track change. */
   flush() {
+    if (this.flushHeld) return;
     this.node?.port.postMessage({ type: 'flush' });
+  }
+
+  /**
+   * While crossfade's gapless bridge plays, it feeds this node with the player held
+   * silent upstream, so a flush would cut the bridge rather than stale player audio.
+   */
+  holdFlushes(held: boolean) {
+    this.flushHeld = held;
   }
 }

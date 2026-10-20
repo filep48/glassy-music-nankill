@@ -35,6 +35,7 @@ declare global {
 
   interface DocumentEventMap {
     'peard:audio-can-play': CustomEvent<Compressor>;
+    'peard:audio-bridge': CustomEvent<{ active: boolean }>;
     'videodatachange': CustomEvent<VideoDataChanged>;
     /**
      * Dispatched by the crossfade plugin immediately before it advances the

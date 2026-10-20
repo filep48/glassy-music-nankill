@@ -141,6 +141,8 @@ const onAudioCanPlay = ({ detail }: CustomEvent<Compressor>) => {
  * play as a burst from the old position before the new audio arrives.
  */
 const onFlushNeeded = () => graph.flush();
+const onAudioBridge = ({ detail }: CustomEvent<{ active: boolean }>) =>
+  graph.holdFlushes(detail.active);
 
 const mountControl = () => {
   const playerBar = document.querySelector(PLAYER_BAR_SELECTOR);
@@ -194,6 +196,7 @@ export const onRendererStart = async (
   document.addEventListener('peard:audio-can-play', onAudioCanPlay, {
     passive: true,
   });
+  document.addEventListener('peard:audio-bridge', onAudioBridge);
   window.addEventListener('keydown', onKeyDown);
 
   // Re-enabled without a track change: splice back into the graph we remembered.
@@ -243,6 +246,7 @@ export const onRendererStop = (
   context: RendererContext<PitchShiftPluginConfig>,
 ) => {
   document.removeEventListener('peard:audio-can-play', onAudioCanPlay);
+  document.removeEventListener('peard:audio-bridge', onAudioBridge);
   window.removeEventListener('keydown', onKeyDown);
   video?.removeEventListener('seeked', onFlushNeeded);
   video?.removeEventListener('peard:src-changed', onFlushNeeded);
