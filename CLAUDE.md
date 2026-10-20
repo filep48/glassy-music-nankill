@@ -114,6 +114,30 @@ App-level events are prefixed `peard:` (from pear-desktop): `peard:video-src-cha
 (a DOM event on the `<video>`), `peard:audio-can-play`, `peard:seeked`. All emitted by
 `src/providers/song-info-front.ts`.
 
+## Gapless mode (crossfade plugin, `mode: 'gapless'`)
+
+`src/plugins/crossfade/gapless.ts` decodes the first ~20 s of the next queue item
+(`audio-url` IPC, a byte-range fetch, `decodeAudioData`), starts it on the
+AudioContext clock at the end of the current track, then aligns the muted player and
+hands the audio back. Facts it depends on, all measured:
+
+- The player only loads the next track after `ended`: ~700 ms of digital silence.
+- A `<video>` reaching its end fires `pause` before `ended`. Do not treat it as a user
+  pause.
+- `video.duration` is not where the audio ends. The player streams Opus (251), the
+  bridge AAC (140), and the same song differs by up to 437 ms between them. The start
+  is scheduled with a lead (~20 ms) that adapts from a probe on the player's output.
+- A seek stalls playback for a varying 100-200 ms, so seeks alone never converge.
+  Alignment is one seek, then playback-rate nudges on the muted player, measured by
+  cross-correlating two analysers (window 32768 samples, lag limited to half of it).
+- The bridge joins the line right after the gapless gain (inserted first), so it goes
+  through pitch-shift. While it plays, `peard:audio-bridge` (`detail.active`) makes
+  pitch-shift hold its flushes and playback-speed stop re-asserting the rate.
+
+To test it, launch `node_modules/electron/dist/electron.exe . --remote-debugging-port=9229`
+after `pnpm build`, drive the page over CDP, and record the system output (WASAPI
+loopback) to measure gaps instead of listening for them.
+
 ## Naming that does not match behaviour
 
 The **`do-not-track` plugin is the ad blocker**, renamed from `adblocker` in 3.12
