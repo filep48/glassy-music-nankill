@@ -424,7 +424,12 @@
     "crossfade": {
       "description": "Crossfade between songs",
       "menu": {
-        "advanced": "Advanced"
+        "advanced": "Advanced",
+        "mode": {
+          "crossfade": "Crossfade",
+          "gapless": "Gapless",
+          "label": "Transition"
+        }
       },
       "name": "Crossfade [Beta]",
       "prompt": {

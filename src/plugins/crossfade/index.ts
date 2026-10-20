@@ -16,6 +16,7 @@ import { createPlugin } from '@/utils';
 
 import { CrossfadeAudioGraph, type CrossfadeRampHandle } from './audio-graph';
 import { VolumeFader } from './fader';
+import { GaplessEngine } from './gapless';
 
 import type { RendererContext } from '@/types/contexts';
 import type { MusicPlayer } from '@/types/music-player';
@@ -27,6 +28,11 @@ export type CrossfadePluginConfig = {
   fadeOutDuration: number;
   secondsBeforeEnd: number;
   fadeScaling: 'linear' | 'logarithmic' | 'equalPower' | number;
+  /**
+   * 'gapless' plays the next song back to back with no fade, instead of
+   * crossfading.
+   */
+  mode: 'crossfade' | 'gapless';
 };
 
 // Duration of the handoff cross-ramp between the player's <video> and the
@@ -119,12 +125,13 @@ export default createPlugin<
      * @default 'linear'
      */
     fadeScaling: 'linear',
+    mode: 'crossfade',
   },
-  menu({ window, getConfig, setConfig }) {
+  async menu({ window, getConfig, setConfig }) {
     const promptCrossfadeValues = async (
       win: BrowserWindow,
       options: CrossfadePluginConfig,
-    ): Promise<Omit<CrossfadePluginConfig, 'enabled'> | undefined> => {
+    ): Promise<Omit<CrossfadePluginConfig, 'enabled' | 'mode'> | undefined> => {
       const res = await prompt(
         {
           title: t('plugins.crossfade.prompt.options'),
@@ -213,7 +220,18 @@ export default createPlugin<
       };
     };
 
+    const { mode } = await getConfig();
+
     return [
+      {
+        label: t('plugins.crossfade.menu.mode.label'),
+        submenu: (['crossfade', 'gapless'] as const).map((value) => ({
+          label: t(`plugins.crossfade.menu.mode.${value}`),
+          type: 'radio' as const,
+          checked: (mode ?? 'crossfade') === value,
+          click: () => setConfig({ mode: value }),
+        })),
+      },
       {
         label: t('plugins.crossfade.menu.advanced'),
         async click() {
@@ -320,6 +338,21 @@ export default createPlugin<
       // half-built graph and bails instead (same pattern as
       // smooth-transitions).
       const generation = ++this.setupGeneration;
+
+      if (this.config?.mode === 'gapless') {
+        const engine = new GaplessEngine({
+          playerApi,
+          getAudioUrl: (videoId) =>
+            this.ipc?.invoke('audio-url', videoId) as Promise<string | null>,
+          log: {
+            info: (msg) => console.info(`[Crossfade] ${msg}`),
+            warn: (msg) => console.warn(`[Crossfade] ${msg}`),
+          },
+        });
+        if (engine.start()) this.cleanup = () => engine.dispose();
+        return;
+      }
+
       const graph = new CrossfadeAudioGraph();
       try {
         await graph.init();
