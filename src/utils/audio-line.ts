@@ -84,7 +84,8 @@ export const getOrCreateMediaSource = (
 };
 
 /**
- * Appends `node` to the ordered chain for `source` under `id`.
+ * Adds `node` to the ordered chain for `source` under `id`, at the tail, or at
+ * the head with `first`.
  *
  * Inserting an id that is already present replaces the old node in place
  * (same-id re-insert), which is how a plugin re-wires after a re-claim
@@ -102,6 +103,7 @@ export const insertLineNode = (
   source: MediaElementAudioSourceNode,
   id: string,
   node: AudioNode,
+  { first = false }: { first?: boolean } = {},
 ): boolean => {
   let state: LineState;
   try {
@@ -118,6 +120,31 @@ export const insertLineNode = (
   const destination = context.destination;
 
   try {
+    if (existingIndex === -1 && first) {
+      const headNode =
+        state.order.length > 0 ? state.nodes.get(state.order[0]) : undefined;
+      const head: AudioNode = headNode ?? destination;
+      node.connect(head);
+      try {
+        source.connect(node);
+      } catch {
+        try {
+          node.disconnect(head);
+        } catch {
+          // already detached
+        }
+        return false;
+      }
+      try {
+        source.disconnect(head);
+      } catch {
+        // nothing to remove
+      }
+      state.order.unshift(id);
+      state.nodes.set(id, node);
+      return true;
+    }
+
     if (existingIndex === -1) {
       // Append after the current tail — the source itself while the
       // chain is still empty.
@@ -239,4 +266,22 @@ export const removeLineNode = (
   state.order.splice(index, 1);
   state.nodes.delete(id);
   return true;
+};
+
+/**
+ * The node audio leaving `id` flows into: the next node in the chain, or the
+ * destination when `id` is the tail. Lets a second source join the line
+ * downstream of a node it must bypass. Null when `id` is not inserted.
+ */
+export const getLineNodeOutput = (
+  context: AudioContext,
+  source: MediaElementAudioSourceNode,
+  id: string,
+): AudioNode | null => {
+  const state = lineStates.get(source);
+  if (!state) return null;
+  const index = state.order.indexOf(id);
+  if (index === -1) return null;
+  const nextId = state.order[index + 1];
+  return (nextId ? state.nodes.get(nextId) : undefined) ?? context.destination;
 };
