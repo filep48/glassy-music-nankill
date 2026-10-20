@@ -94,18 +94,14 @@ export class CrossfadeAudioGraph {
   /**
    * Async setup, called once from the plugin's onPlayerApiReady:
    * step-aside checks and registry seeding. When a graph-rerouting plugin
-   * (audio-compressor / equalizer / pitch-shift) is enabled, the graph
+   * (audio-compressor / equalizer) is enabled, the graph
    * permanently disables itself for the session — splicing a second chain
    * into a graph those plugins own could produce parallel audio paths —
    * and the plugin uses its element-mode defenses throughout.
    */
   async init(): Promise<void> {
     if (this.disposed) return;
-    const steppingAsideFor = [
-      'audio-compressor',
-      'equalizer',
-      'pitch-shift',
-    ] as const;
+    const steppingAsideFor = ['audio-compressor', 'equalizer'] as const;
     for (const pluginId of steppingAsideFor) {
       let enabled = false;
       try {
