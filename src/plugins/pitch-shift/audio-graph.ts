@@ -1,14 +1,13 @@
+import {
+  insertLineNode,
+  registerMediaSource,
+  removeLineNode,
+} from '@/utils/audio-line';
+
 import workletSource from './pitch-worklet.js?raw';
 
 const PROCESSOR_NAME = 'pitch-shift-processor';
-
-const lazySafeTry = (...fns: (() => void)[]) => {
-  for (const fn of fns) {
-    try {
-      fn();
-    } catch {}
-  }
-};
+const LINE_NODE_ID = 'pitch-shift';
 
 /**
  * The worklet ships as an inlined string rather than an emitted chunk: the renderer
@@ -27,17 +26,12 @@ const addWorkletModule = async (audioContext: AudioContext) => {
 };
 
 /**
- * Owns the pitch node's place in the shared audio graph.
+ * Owns the pitch node's place in the shared audio line (`@/utils/audio-line`).
  *
- * The app taps YouTube Music's own <video> element, and only one
- * `createMediaElementSource` per element is ever possible, so we reuse the shared
- * source from `peard:audio-can-play` and splice ourselves into it — following
- * audio-compressor.ts, whose WeakMap-and-lazySafeTry discipline this mirrors.
- *
- * The dry path matters more here than for any additive effect. renderer.ts wires
- * `source.connect(destination)` at startup, so simply adding a branch would play the
- * shifted and unshifted audio simultaneously — both keys at once. Every insert must
- * cut the direct line first, and `detach` must put it back.
+ * The node has to replace the dry path, not sit beside it: a parallel branch would
+ * play the shifted and unshifted audio at once. The line splices it in series with
+ * whatever crossfade and smooth-transitions have inserted, which wiring
+ * `source → node → destination` by hand could not do.
  */
 export class PitchAudioGraph {
   lastSource: MediaElementAudioSourceNode | null = null;
@@ -91,6 +85,8 @@ export class PitchAudioGraph {
       return true;
     }
 
+    registerMediaSource(source.mediaElement as HTMLVideoElement, source);
+
     let node: AudioWorkletNode;
     try {
       let load = this.moduleLoads.get(audioContext);
@@ -121,43 +117,22 @@ export class PitchAudioGraph {
     this.applySemitones();
     this.setPhaseLocking(this.phaseLocking);
 
-    if (current) {
-      lazySafeTry(
-        () => source.disconnect(current),
-        () => current.disconnect(audioContext.destination),
-      );
-    } else {
-      lazySafeTry(() => source.disconnect(audioContext.destination));
-    }
-
-    try {
-      source.connect(node);
-      node.connect(audioContext.destination);
-      this.connected.set(source, node);
-      return true;
-    } catch (error) {
-      console.error('[pitch-shift] could not insert the worklet node', error);
-      // Put the audio back rather than leaving the user in silence.
-      lazySafeTry(() => source.connect(audioContext.destination));
+    if (!insertLineNode(audioContext, source, LINE_NODE_ID, node)) {
+      console.error('[pitch-shift] could not insert the worklet node');
       this.node = null;
       return false;
     }
+    this.connected.set(source, node);
+    return true;
   }
 
-  /** Restore the direct source → destination line renderer.ts set up. */
   detach(): boolean {
     const source = this.lastSource;
     const audioContext = this.lastContext;
     if (!(source && audioContext)) return false;
+    if (!this.connected.has(source)) return false;
 
-    const current = this.connected.get(source);
-    if (!current) return false;
-
-    lazySafeTry(
-      () => source.connect(audioContext.destination),
-      () => source.disconnect(current),
-      () => current.disconnect(audioContext.destination),
-    );
+    if (!removeLineNode(audioContext, source, LINE_NODE_ID)) return false;
     this.connected.delete(source);
     this.node = null;
     return true;

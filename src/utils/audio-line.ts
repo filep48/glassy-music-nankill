@@ -21,10 +21,10 @@
  *   elements (e.g. after sleep/wake), which register atomically so a
  *   later claim by another plugin reuses them instead of throwing.
  *
- * Migration scope: crossfade and smooth-transitions only. The other
- * graph-rerouting plugins (audio-compressor, equalizer, pitch-shift) keep
- * their own wiring and step-aside policies; while they are enabled the
- * line cannot be claimed by these two, and callers fall back to their
+ * Migration scope: crossfade, smooth-transitions and pitch-shift. The other
+ * graph-rerouting plugins (audio-compressor, equalizer) keep their own
+ * wiring and step-aside policies; while they are enabled the line cannot be
+ * claimed by crossfade or smooth-transitions, and callers fall back to their
  * element-mode defenses.
  */
 
