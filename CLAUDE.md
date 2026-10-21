@@ -6,10 +6,11 @@ Fork of `NanKillBro/glassy-music-nankill`, itself a mod of `pear-devs/pear-deskt
     origin    https://github.com/filep48/glassy-music-nankill
     upstream  https://github.com/NanKillBro/glassy-music-nankill
 
-**`features` is the integration branch.** Everything lands there and gets pushed:
-branch off `features`, merge back into it, push it. The installed build is built from
-it. `master` stays a mirror of upstream; bringing upstream in means rebasing
-`features` onto `upstream/master`.
+**Two long-lived branches.** `features` is for development and testing: branch off
+it, merge back into it, push it. `master` holds what has been verified to work, and is
+only ever fast-forwarded to a tested `features`; the installed build comes from
+`master`. Because `master` is never force-pushed, bring upstream in by merging
+`upstream/master` into `features`, not by rebasing.
 
 The top upstream (pear-desktop) is not configured as a remote, but most plugin code
 comes from there and so do the useful issues. Most plugin bugs are pear-desktop bugs,
