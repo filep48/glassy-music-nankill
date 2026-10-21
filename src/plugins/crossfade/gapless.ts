@@ -225,9 +225,13 @@ export class GaplessEngine {
     if (!queue || queue.repeatMode === 'ONE') return null;
     const index = queue.items.findIndex((item) => rendererOf(item)?.selected);
     if (index === -1) return null;
-    const next =
-      queue.items[index + 1] ??
-      (queue.repeatMode === 'ALL' ? queue.items[0] : undefined);
+    let next: QueueItem | undefined = queue.items[index + 1];
+    if (!next && queue.repeatMode === 'ALL') next = queue.items[0];
+    // With autoplay on, the player continues past the last item with the first
+    // suggestion, which it only appends to the queue once it starts playing.
+    if (!next && queue.autoplay) {
+      next = (queue.automixItems as QueueItem[] | undefined)?.[0];
+    }
     return rendererOf(next)?.videoId ?? null;
   }
 
